@@ -12,7 +12,10 @@ export class BrainModel {
   public async load(): Promise<void> {
     const gltf = await this.loader.loadAsync("/models/brain.glb");
     gltf.scene.traverse((object) => {
-      if (object instanceof THREE.Mesh) this.meshes.push(object);
+      if (object instanceof THREE.Mesh) {
+        this.meshes.push(object);
+        object.geometry.computeBoundsTree();
+      }
     });
 
     gltf.scene.scale.setScalar(3);

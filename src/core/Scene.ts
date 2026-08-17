@@ -7,7 +7,7 @@ export class Scene {
     this.init();
   }
   private init(): void {
-    this.instance.background = new THREE.Color(0x222222);
+    this.instance.background = new THREE.Color(0x020617);
 
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.15);
     this.instance.add(ambientLight);

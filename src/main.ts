@@ -1,4 +1,7 @@
 import "./style.css";
+import "./core/BVH";
+
+import * as THREE from "three";
 
 import { Scene } from "./core/Scene";
 import { Camera } from "./core/Camera";
@@ -18,11 +21,14 @@ const controls = new Controls(camera.instance, renderer.instance);
 const loadingScreen = new LoadingScreen();
 const loader = new Loader((progress) => loadingScreen.setProgress(progress));
 
+const clock = new THREE.Clock();
+
+let neurons: NeuronSystem;
 async function init() {
   const brain = new BrainModel(loader.manager);
   await brain.load();
 
-  const neurons = new NeuronSystem(brain.meshes, 1000);
+  neurons = new NeuronSystem(brain.meshes, 3000);
   scene.instance.add(neurons.instance);
 
   loadingScreen.hide();
@@ -32,6 +38,9 @@ async function init() {
 
 function animate() {
   requestAnimationFrame(animate);
+
+  const elapsedTime = clock.getElapsedTime();
+  neurons.setTime(elapsedTime);
 
   controls.update();
   renderer.render(scene.instance, camera.instance);
