@@ -22,7 +22,7 @@ const controls = new Controls(camera.instance, renderer.instance);
 const loadingScreen = new LoadingScreen();
 const loader = new Loader((progress) => loadingScreen.setProgress(progress));
 
-const clock = new THREE.Clock();
+const timer = new THREE.Timer();
 
 let neurons: NeuronSystem;
 let connections: ConnectionSystem;
@@ -44,7 +44,9 @@ async function init() {
 function animate() {
   requestAnimationFrame(animate);
 
-  const elapsedTime = clock.getElapsedTime();
+  timer.update();
+  const elapsedTime = timer.getElapsed();
+
   neurons.setTime(elapsedTime);
   connections.setTime(elapsedTime);
 
