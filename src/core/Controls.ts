@@ -8,6 +8,7 @@ export class Controls {
     this.init();
   }
   private init(): void {
+    this.instance.enablePan = false;
     this.instance.enableDamping = true;
   }
   update(): void {

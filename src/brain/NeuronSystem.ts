@@ -81,9 +81,6 @@ export class NeuronSystem {
       }
     }
 
-    console.log(`Attempts: ${attempts}`);
-    console.log(`Placed ${placed}/${count}`);
-
     return positions;
   }
   private createMaterial(): THREE.ShaderMaterial {
@@ -163,5 +160,8 @@ export class NeuronSystem {
     geometry.setAttribute("aPhase", new THREE.BufferAttribute(phases, 1));
 
     return new THREE.Points(geometry, this.material);
+  }
+  public getPositions(): Float32Array {
+    return this.positions;
   }
 }

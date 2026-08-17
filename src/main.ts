@@ -12,6 +12,7 @@ import { LoadingScreen } from "./core/LoadingScreen";
 
 import { BrainModel } from "./brain/BrainModel";
 import { NeuronSystem } from "./brain/NeuronSystem";
+import { ConnectionSystem } from "./brain/ConnectionSystem";
 
 const scene = new Scene();
 const camera = new Camera();
@@ -24,11 +25,15 @@ const loader = new Loader((progress) => loadingScreen.setProgress(progress));
 const clock = new THREE.Clock();
 
 let neurons: NeuronSystem;
+let connections: ConnectionSystem;
 async function init() {
   const brain = new BrainModel(loader.manager);
   await brain.load();
 
   neurons = new NeuronSystem(brain.meshes, 3000);
+  connections = new ConnectionSystem(neurons.getPositions(), 3);
+
+  scene.instance.add(connections.instance);
   scene.instance.add(neurons.instance);
 
   loadingScreen.hide();
@@ -41,6 +46,7 @@ function animate() {
 
   const elapsedTime = clock.getElapsedTime();
   neurons.setTime(elapsedTime);
+  connections.setTime(elapsedTime);
 
   controls.update();
   renderer.render(scene.instance, camera.instance);
