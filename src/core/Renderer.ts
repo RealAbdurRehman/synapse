@@ -15,7 +15,9 @@ export class Renderer {
     this.instance.outputColorSpace = THREE.SRGBColorSpace;
     this.instance.setSize(window.innerWidth, window.innerHeight);
     this.instance.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    document.body.appendChild(this.instance.domElement);
+
+    const container = document.getElementById("app")!;
+    container.appendChild(this.instance.domElement);
   }
   resize(): void {
     this.instance.setSize(window.innerWidth, window.innerHeight);

@@ -13,7 +13,7 @@ export class Camera {
     this.init();
   }
   private init(): void {
-    this.instance.position.z = 5;
+    this.instance.position.z = 12;
   }
   resize(): void {
     this.instance.aspect = window.innerWidth / window.innerHeight;
