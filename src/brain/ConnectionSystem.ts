@@ -4,16 +4,20 @@ interface Connection {
   a: number;
   b: number;
   strength: number;
+  curveAmount: number;
+  curveSeed: number;
 }
 
 export class ConnectionSystem {
   public readonly instance: THREE.LineSegments;
+
   private readonly geometry: THREE.BufferGeometry;
   private readonly material: THREE.ShaderMaterial;
   private readonly positions: Float32Array;
 
   private readonly maxConnectionsPerNeuron: number;
   private readonly connectionRadius: number;
+  private readonly segmentsPerConnection = 12;
 
   private readonly grid: Map<string, number[]>;
   private readonly connections: Connection[] = [];
@@ -38,10 +42,9 @@ export class ConnectionSystem {
     this.material.uniforms.uTime.value = time;
   }
   private getCellKey(x: number, y: number, z: number): string {
-    const cellX = Math.floor(x / this.connectionRadius);
-    const cellY = Math.floor(y / this.connectionRadius);
-    const cellZ = Math.floor(z / this.connectionRadius);
-    return `${cellX},${cellY},${cellZ}`;
+    return `${Math.floor(x / this.connectionRadius)},${Math.floor(
+      y / this.connectionRadius,
+    )},${Math.floor(z / this.connectionRadius)}`;
   }
   private buildSpatialGrid(): Map<string, number[]> {
     const grid = new Map<string, number[]>();
@@ -74,10 +77,7 @@ export class ConnectionSystem {
     const cellY = Math.floor(y / this.connectionRadius);
     const cellZ = Math.floor(z / this.connectionRadius);
 
-    const candidates: {
-      index: number;
-      distanceSquared: number;
-    }[] = [];
+    const candidates: { index: number; distanceSquared: number }[] = [];
 
     const position = new THREE.Vector3(x, y, z);
     const candidatePosition = new THREE.Vector3();
@@ -85,8 +85,9 @@ export class ConnectionSystem {
     for (let dx = -1; dx <= 1; dx++) {
       for (let dy = -1; dy <= 1; dy++) {
         for (let dz = -1; dz <= 1; dz++) {
-          const key = `${cellX + dx},${cellY + dy},${cellZ + dz}`;
-          const cell = this.grid.get(key);
+          const cell = this.grid.get(
+            `${cellX + dx},${cellY + dy},${cellZ + dz}`,
+          );
 
           if (!cell) continue;
 
@@ -102,10 +103,7 @@ export class ConnectionSystem {
             const distanceSquared =
               position.distanceToSquared(candidatePosition);
 
-            if (
-              distanceSquared <=
-              this.connectionRadius * this.connectionRadius
-            )
+            if (distanceSquared <= this.connectionRadius ** 2)
               candidates.push({ index: j, distanceSquared });
           }
         }
@@ -121,23 +119,27 @@ export class ConnectionSystem {
     b: number,
     distanceSquared: number,
     radius: number,
-    maxStrength: number = 1.0,
+    maxStrength: number = 1,
   ): boolean {
-    const min = Math.min(a, b);
-    const max = Math.max(a, b);
-    const key = `${min}-${max}`;
+    const key = `${Math.min(a, b)}-${Math.max(a, b)}`;
 
     if (this.connected.has(key)) return false;
     this.connected.add(key);
 
     const distance = Math.sqrt(distanceSquared);
     const strength = THREE.MathUtils.clamp(
-      1.0 - distance / radius,
+      1 - distance / radius,
       0.15,
       maxStrength,
     );
 
-    this.connections.push({ a, b, strength });
+    this.connections.push({
+      a,
+      b,
+      strength,
+      curveAmount: distance * THREE.MathUtils.lerp(0.08, 0.22, Math.random()),
+      curveSeed: Math.random(),
+    });
 
     return true;
   }
@@ -145,12 +147,12 @@ export class ConnectionSystem {
     const count = this.positions.length / 3;
     for (let i = 0; i < count; i++) {
       const candidates = this.findNearbyNeurons(i);
-      const connectionCount = Math.min(
-        this.maxConnectionsPerNeuron,
-        candidates.length,
-      );
 
-      for (let k = 0; k < connectionCount; k++) {
+      for (
+        let k = 0;
+        k < Math.min(this.maxConnectionsPerNeuron, candidates.length);
+        k++
+      ) {
         const candidate = candidates[k];
         this.addConnection(
           i,
@@ -169,26 +171,27 @@ export class ConnectionSystem {
       adjacency[connection.b].push(connection.a);
     }
 
-    const componentIds = new Int32Array(count);
-    componentIds.fill(-1);
+    const ids = new Int32Array(count);
+    ids.fill(-1);
 
     const components: number[][] = [];
     for (let i = 0; i < count; i++) {
-      if (componentIds[i] !== -1) continue;
+      if (ids[i] !== -1) continue;
 
-      const componentIndex = components.length;
+      const id = components.length;
       const component: number[] = [];
       const queue = [i];
 
-      componentIds[i] = componentIndex;
+      ids[i] = id;
 
-      for (let queueIndex = 0; queueIndex < queue.length; queueIndex++) {
-        const current = queue[queueIndex];
+      for (let q = 0; q < queue.length; q++) {
+        const current = queue[q];
         component.push(current);
 
         for (const neighbor of adjacency[current]) {
-          if (componentIds[neighbor] !== -1) continue;
-          componentIds[neighbor] = componentIndex;
+          if (ids[neighbor] !== -1) continue;
+
+          ids[neighbor] = id;
           queue.push(neighbor);
         }
       }
@@ -198,36 +201,23 @@ export class ConnectionSystem {
 
     return components;
   }
-  private findClosestComponents(components: number[][]): {
-    a: number;
-    b: number;
-    distanceSquared: number;
-  } | null {
+  private findClosestComponents(
+    components: number[][],
+  ): { a: number; b: number; distanceSquared: number } | null {
     let bestA = -1;
     let bestB = -1;
     let bestDistanceSquared = Infinity;
 
     const a = new THREE.Vector3();
     const b = new THREE.Vector3();
-    for (let componentA = 0; componentA < components.length; componentA++) {
-      for (
-        let componentB = componentA + 1;
-        componentB < components.length;
-        componentB++
-      ) {
-        for (const i of components[componentA]) {
-          a.set(
-            this.positions[i * 3],
-            this.positions[i * 3 + 1],
-            this.positions[i * 3 + 2],
-          );
 
-          for (const j of components[componentB]) {
-            b.set(
-              this.positions[j * 3],
-              this.positions[j * 3 + 1],
-              this.positions[j * 3 + 2],
-            );
+    for (let ca = 0; ca < components.length; ca++) {
+      for (let cb = ca + 1; cb < components.length; cb++) {
+        for (const i of components[ca]) {
+          a.fromArray(this.positions, i * 3);
+
+          for (const j of components[cb]) {
+            b.fromArray(this.positions, j * 3);
 
             const distanceSquared = a.distanceToSquared(b);
             if (distanceSquared < bestDistanceSquared) {
@@ -239,14 +229,9 @@ export class ConnectionSystem {
         }
       }
     }
+    if (bestA === -1) return null;
 
-    if (bestA === -1 || bestB === -1) return null;
-
-    return {
-      a: bestA,
-      b: bestB,
-      distanceSquared: bestDistanceSquared,
-    };
+    return { a: bestA, b: bestB, distanceSquared: bestDistanceSquared };
   }
   private ensureConnectivity(): void {
     let components = this.findComponents();
@@ -270,35 +255,74 @@ export class ConnectionSystem {
     this.ensureConnectivity();
   }
   private createGeometry(): THREE.BufferGeometry {
-    const linePositions = new Float32Array(this.connections.length * 2 * 3);
-    const strengths = new Float32Array(this.connections.length * 2);
+    const positions: number[] = [];
+    const strengths: number[] = [];
 
-    let offset = 0;
+    const start = new THREE.Vector3();
+    const end = new THREE.Vector3();
+    const midpoint = new THREE.Vector3();
+    const direction = new THREE.Vector3();
+    const perpendicular = new THREE.Vector3();
+    const perpendicular2 = new THREE.Vector3();
+    const curveDirection = new THREE.Vector3();
+    const point = new THREE.Vector3();
+
     for (const connection of this.connections) {
-      const a = connection.a;
-      const b = connection.b;
+      start.fromArray(this.positions, connection.a * 3);
+      end.fromArray(this.positions, connection.b * 3);
 
-      linePositions[offset++] = this.positions[a * 3];
-      linePositions[offset++] = this.positions[a * 3 + 1];
-      linePositions[offset++] = this.positions[a * 3 + 2];
+      direction.subVectors(end, start).normalize();
 
-      linePositions[offset++] = this.positions[b * 3];
-      linePositions[offset++] = this.positions[b * 3 + 1];
-      linePositions[offset++] = this.positions[b * 3 + 2];
-    }
+      const reference =
+        Math.abs(direction.y) < 0.9
+          ? new THREE.Vector3(0, 1, 0)
+          : new THREE.Vector3(1, 0, 0);
 
-    for (let i = 0; i < this.connections.length; i++) {
-      strengths[i * 2] = this.connections[i].strength;
-      strengths[i * 2 + 1] = this.connections[i].strength;
+      perpendicular.crossVectors(direction, reference).normalize();
+      perpendicular2.crossVectors(direction, perpendicular).normalize();
+
+      const angle = connection.curveSeed * Math.PI * 2;
+
+      curveDirection
+        .copy(perpendicular)
+        .multiplyScalar(Math.cos(angle))
+        .add(perpendicular2.clone().multiplyScalar(Math.sin(angle)))
+        .normalize();
+
+      midpoint.addVectors(start, end).multiplyScalar(0.5);
+
+      for (let i = 0; i < this.segmentsPerConnection; i++) {
+        const t0 = i / this.segmentsPerConnection;
+        const t1 = (i + 1) / this.segmentsPerConnection;
+
+        const bend0 = Math.sin(t0 * Math.PI) * connection.curveAmount;
+        const bend1 = Math.sin(t1 * Math.PI) * connection.curveAmount;
+
+        const p0 = point
+          .lerpVectors(start, end, t0)
+          .addScaledVector(curveDirection, bend0);
+
+        positions.push(p0.x, p0.y, p0.z);
+        strengths.push(connection.strength);
+
+        const p1 = point
+          .lerpVectors(start, end, t1)
+          .addScaledVector(curveDirection, bend1);
+
+        positions.push(p1.x, p1.y, p1.z);
+        strengths.push(connection.strength);
+      }
     }
 
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute(
       "position",
-      new THREE.BufferAttribute(linePositions, 3),
+      new THREE.Float32BufferAttribute(positions, 3),
     );
-
-    geometry.setAttribute("aStrength", new THREE.BufferAttribute(strengths, 1));
+    geometry.setAttribute(
+      "aStrength",
+      new THREE.Float32BufferAttribute(strengths, 1),
+    );
 
     return geometry;
   }
@@ -315,12 +339,9 @@ export class ConnectionSystem {
 
         void main() {
           vStrength = aStrength;
-          
           vec4 worldPosition = modelMatrix * vec4(position, 1.0);
           vWorldPosition = worldPosition.xyz;
-
-          vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-          gl_Position = projectionMatrix * mvPosition;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
         }
       `,
       fragmentShader: `
