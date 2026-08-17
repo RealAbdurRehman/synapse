@@ -17,7 +17,7 @@ export class ConnectionSystem {
 
   private readonly maxConnectionsPerNeuron: number;
   private readonly connectionRadius: number;
-  private readonly segmentsPerConnection = 12;
+  private readonly segmentsPerConnection = 16;
 
   private readonly grid: Map<string, number[]>;
   private readonly connections: Connection[] = [];
@@ -137,7 +137,7 @@ export class ConnectionSystem {
       a,
       b,
       strength,
-      curveAmount: distance * THREE.MathUtils.lerp(0.08, 0.22, Math.random()),
+      curveAmount: distance * THREE.MathUtils.lerp(0.06, 0.18, Math.random()),
       curveSeed: Math.random(),
     });
 
@@ -183,7 +183,6 @@ export class ConnectionSystem {
       const queue = [i];
 
       ids[i] = id;
-
       for (let q = 0; q < queue.length; q++) {
         const current = queue[q];
         component.push(current);
@@ -260,7 +259,6 @@ export class ConnectionSystem {
 
     const start = new THREE.Vector3();
     const end = new THREE.Vector3();
-    const midpoint = new THREE.Vector3();
     const direction = new THREE.Vector3();
     const perpendicular = new THREE.Vector3();
     const perpendicular2 = new THREE.Vector3();
@@ -282,32 +280,61 @@ export class ConnectionSystem {
       perpendicular2.crossVectors(direction, perpendicular).normalize();
 
       const angle = connection.curveSeed * Math.PI * 2;
-
       curveDirection
         .copy(perpendicular)
         .multiplyScalar(Math.cos(angle))
         .add(perpendicular2.clone().multiplyScalar(Math.sin(angle)))
         .normalize();
 
-      midpoint.addVectors(start, end).multiplyScalar(0.5);
-
+      const seed = connection.curveSeed * 100.0;
+      const phase1 = seed * 1.73;
+      const phase2 = seed * 2.91;
+      const phase3 = seed * 4.37;
+      const phase4 = seed * 5.83;
       for (let i = 0; i < this.segmentsPerConnection; i++) {
         const t0 = i / this.segmentsPerConnection;
         const t1 = (i + 1) / this.segmentsPerConnection;
 
-        const bend0 = Math.sin(t0 * Math.PI) * connection.curveAmount;
-        const bend1 = Math.sin(t1 * Math.PI) * connection.curveAmount;
+        const envelope0 = Math.sin(t0 * Math.PI);
+        const envelope1 = Math.sin(t1 * Math.PI);
+
+        const irregular0 =
+          Math.sin(t0 * Math.PI * 1.7 + phase1) * 0.55 +
+          Math.sin(t0 * Math.PI * 3.1 + phase2) * 0.25 +
+          Math.sin(t0 * Math.PI * 5.2 + phase3) * 0.12;
+        const irregular1 =
+          Math.sin(t1 * Math.PI * 1.7 + phase1) * 0.55 +
+          Math.sin(t1 * Math.PI * 3.1 + phase2) * 0.25 +
+          Math.sin(t1 * Math.PI * 5.2 + phase3) * 0.12;
+
+        const side0 =
+          Math.sin(t0 * Math.PI * 2.2 + phase4) * 0.35 +
+          Math.sin(t0 * Math.PI * 4.1 + phase2) * 0.15;
+        const side1 =
+          Math.sin(t1 * Math.PI * 2.2 + phase4) * 0.35 +
+          Math.sin(t1 * Math.PI * 4.1 + phase2) * 0.15;
+
+        const bend0 = envelope0 * connection.curveAmount * irregular0;
+        const bend1 = envelope1 * connection.curveAmount * irregular1;
 
         const p0 = point
           .lerpVectors(start, end, t0)
-          .addScaledVector(curveDirection, bend0);
+          .addScaledVector(curveDirection, bend0)
+          .addScaledVector(
+            perpendicular2,
+            envelope0 * connection.curveAmount * side0,
+          );
 
         positions.push(p0.x, p0.y, p0.z);
         strengths.push(connection.strength);
 
         const p1 = point
           .lerpVectors(start, end, t1)
-          .addScaledVector(curveDirection, bend1);
+          .addScaledVector(curveDirection, bend1)
+          .addScaledVector(
+            perpendicular2,
+            envelope1 * connection.curveAmount * side1,
+          );
 
         positions.push(p1.x, p1.y, p1.z);
         strengths.push(connection.strength);
