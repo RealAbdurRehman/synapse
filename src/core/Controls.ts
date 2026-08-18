@@ -10,6 +10,7 @@ export class Controls {
   private init(): void {
     this.instance.enablePan = false;
     this.instance.enableDamping = true;
+    this.instance.maxDistance = 80;
   }
   update(): void {
     this.instance.update();
