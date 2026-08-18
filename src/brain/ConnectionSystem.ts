@@ -462,8 +462,7 @@ export class ConnectionSystem {
           float camDist = length(vWorldPosition - cameraPosition);
           float distanceFade = smoothstep(45.0, 8.0, camDist);
 
-          float alpha = (0.15 + vStrength * 0.35) * distanceFade;
-          alpha += signalGlow * 0.8;
+          float alpha = (0.15 + vStrength * 0.35 + signalGlow * 0.8) * distanceFade;
           gl_FragColor = vec4(color * brightness, alpha);
         }
       `,

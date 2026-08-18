@@ -28,7 +28,9 @@ export class ActivitySystem {
   constructor(neurons: NeuronSystem, connections: ConnectionSystem) {
     this.neurons = neurons;
     this.connections = connections;
-    this.lastFired = new Float32Array(neurons.getPositions().length / 3);
+    this.lastFired = new Float32Array(neurons.getPositions().length / 3).fill(
+      -1000,
+    );
   }
   public update(time: number): void {
     if (time >= this.nextSpontaneousFire) {
