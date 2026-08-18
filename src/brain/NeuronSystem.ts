@@ -3,6 +3,7 @@ import * as THREE from "three";
 export class NeuronSystem {
   public instance: THREE.Points;
   private positions: Float32Array;
+
   private readonly surfaceRaycaster = new THREE.Raycaster();
   private readonly surfaceDirections = [
     new THREE.Vector3(1, 0, 0),
@@ -12,9 +13,14 @@ export class NeuronSystem {
     new THREE.Vector3(0, 0, 1),
     new THREE.Vector3(0, 0, -1),
   ];
+
+  private readonly highlighted: Float32Array;
+  private readonly fireTime: Float32Array;
   private readonly material: THREE.ShaderMaterial;
   constructor(meshes: THREE.Mesh[], count: number = 1000) {
     this.positions = this.createPositions(meshes, count);
+    this.highlighted = new Float32Array(count);
+    this.fireTime = new Float32Array(count).fill(-1000);
     this.material = this.createMaterial();
     this.instance = this.createInstance();
   }
@@ -45,7 +51,6 @@ export class NeuronSystem {
     for (const mesh of meshes) box.expandByObject(mesh);
 
     const positions = new Float32Array(count * 3);
-
     const candidate = new THREE.Vector3();
     const direction = new THREE.Vector3(1, 0, 0);
 
@@ -93,8 +98,13 @@ export class NeuronSystem {
         uniform float uTime;
         varying float vPulse;
         varying vec3 vWorldPosition;
+        varying float vHighlight;
+        varying float vFireEnvelope;
+
         attribute float aSize;
         attribute float aPhase;
+        attribute float aHighlight;
+        attribute float aFireTime;
 
         void main() {
           vec4 worldPosition = modelMatrix * vec4(position, 1.0);
@@ -103,10 +113,20 @@ export class NeuronSystem {
           vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
           float pulse = sin(uTime * 1.5 + aPhase) * 0.5 + 0.5;
           vPulse = pulse;
+          vHighlight = aHighlight;
+
+          float t = uTime - aFireTime;
+          float decayRate = mix(1.8, 3.0, fract(aPhase * 0.318));
+          float rise = smoothstep(0.0, 0.09, t);
+          float decay = exp(-max(t, 0.0) * decayRate);
+          vFireEnvelope = rise * decay;
 
           float sizeMultiplier = mix(0.6, 1.8, pulse);
+          sizeMultiplier *= 1.0 + vFireEnvelope * 1.6;
+          if (aHighlight > 0.5) sizeMultiplier *= 1.5;
+
           gl_PointSize = 5.0 * aSize * sizeMultiplier * (300.0 / -mvPosition.z);
-          gl_PointSize = clamp(gl_PointSize, 1.5, 40.0);
+          gl_PointSize = clamp(gl_PointSize, 1.5, 44.0);
 
           gl_Position = projectionMatrix * mvPosition;
         }
@@ -114,6 +134,8 @@ export class NeuronSystem {
       fragmentShader: `
         uniform float uTime;
         varying float vPulse;
+        varying float vHighlight;
+        varying float vFireEnvelope;
         varying vec3 vWorldPosition;
 
         void main() {
@@ -124,17 +146,25 @@ export class NeuronSystem {
           float glow = pow(1.0 - smoothstep(0.0, 1.0, dist), 1.6);
           float core = pow(1.0 - smoothstep(0.0, 0.25, dist), 2.0);
 
-          vec3 color = vec3(0.35, 0.75, 1.0);
+          vec3 baseColor = vec3(0.35, 0.75, 1.0);
+          vec3 hotColor = vec3(0.75, 0.95, 1.0);
+
+          vec3 color = mix(baseColor, hotColor, min(vFireEnvelope, 1.0));
+          if (vHighlight > 0.5) color *= 1.5;
 
           float shimmer = 0.85 + 0.15 * sin(uTime * 3.0 + vWorldPosition.x * 0.5 + vWorldPosition.y * 0.3);
           float brightness = mix(0.55, 1.25, vPulse) * shimmer;
+          brightness += vFireEnvelope * 2.2;
 
-          vec3 finalColor = color * (glow * 0.7 + core * 1.8) * brightness;
+          float coreMultiplier = 1.8 + vFireEnvelope * 1.4;
+
+          vec3 finalColor = color * (glow * 0.7 + core * coreMultiplier) * brightness;
+          finalColor = finalColor / (1.0 + max(finalColor - 1.4, 0.0));
 
           float camDist = length(vWorldPosition - cameraPosition);
           float distanceFade = smoothstep(60.0, 8.0, camDist);
 
-          float alpha = (glow * 0.75 + core * 0.35) * distanceFade;
+          float alpha = (glow * 0.75 + core * 0.35 + vFireEnvelope * 0.3) * distanceFade;
 
           gl_FragColor = vec4(finalColor, alpha);
         }
@@ -158,8 +188,37 @@ export class NeuronSystem {
 
     geometry.setAttribute("aSize", new THREE.BufferAttribute(sizes, 1));
     geometry.setAttribute("aPhase", new THREE.BufferAttribute(phases, 1));
+    geometry.setAttribute(
+      "aHighlight",
+      new THREE.BufferAttribute(this.highlighted, 1),
+    );
+    geometry.setAttribute(
+      "aFireTime",
+      new THREE.BufferAttribute(this.fireTime, 1),
+    );
 
     return new THREE.Points(geometry, this.material);
+  }
+  public setHighlighted(indices: Set<number>): void {
+    this.highlighted.fill(0);
+    for (const index of indices)
+      if (index >= 0 && index < this.highlighted.length)
+        this.highlighted[index] = 1;
+
+    const attribute = this.instance.geometry.getAttribute(
+      "aHighlight",
+    ) as THREE.BufferAttribute;
+    attribute.needsUpdate = true;
+  }
+  public fire(index: number): void {
+    if (index < 0 || index >= this.fireTime.length) return;
+
+    this.fireTime[index] = this.material.uniforms.uTime.value;
+
+    const attribute = this.instance.geometry.getAttribute(
+      "aFireTime",
+    ) as THREE.BufferAttribute;
+    attribute.needsUpdate = true;
   }
   public getPositions(): Float32Array {
     return this.positions;

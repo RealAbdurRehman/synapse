@@ -8,6 +8,14 @@ interface Connection {
   curveSeed: number;
 }
 
+interface VisualSignal {
+  connection: number;
+  startTime: number;
+  duration: number;
+  strength: number;
+  direction: number;
+}
+
 export class ConnectionSystem {
   public readonly instance: THREE.LineSegments;
 
@@ -22,6 +30,9 @@ export class ConnectionSystem {
   private readonly grid: Map<string, number[]>;
   private readonly connections: Connection[] = [];
   private readonly connected = new Set<string>();
+  private readonly adjacency = new Map<number, number[]>();
+
+  private readonly activeSignals: VisualSignal[] = [];
   constructor(
     positions: Float32Array,
     maxConnectionsPerNeuron: number = 3,
@@ -33,6 +44,7 @@ export class ConnectionSystem {
 
     this.grid = this.buildSpatialGrid();
     this.createConnections();
+    this.buildAdjacency();
 
     this.geometry = this.createGeometry();
     this.material = this.createMaterial();
@@ -40,6 +52,7 @@ export class ConnectionSystem {
   }
   public setTime(time: number): void {
     this.material.uniforms.uTime.value = time;
+    this.updateSignalUniforms(time);
   }
   private getCellKey(x: number, y: number, z: number): string {
     return `${Math.floor(x / this.connectionRadius)},${Math.floor(
@@ -253,9 +266,20 @@ export class ConnectionSystem {
     this.createLocalConnections();
     this.ensureConnectivity();
   }
+  private buildAdjacency(): void {
+    for (let i = 0; i < this.positions.length / 3; i++)
+      this.adjacency.set(i, []);
+
+    for (const connection of this.connections) {
+      this.adjacency.get(connection.a)!.push(connection.b);
+      this.adjacency.get(connection.b)!.push(connection.a);
+    }
+  }
   private createGeometry(): THREE.BufferGeometry {
     const positions: number[] = [];
     const strengths: number[] = [];
+    const progresses: number[] = [];
+    const connectionIds: number[] = [];
 
     const start = new THREE.Vector3();
     const end = new THREE.Vector3();
@@ -265,7 +289,12 @@ export class ConnectionSystem {
     const curveDirection = new THREE.Vector3();
     const point = new THREE.Vector3();
 
-    for (const connection of this.connections) {
+    for (
+      let connectionIndex = 0;
+      connectionIndex < this.connections.length;
+      connectionIndex++
+    ) {
+      const connection = this.connections[connectionIndex];
       start.fromArray(this.positions, connection.a * 3);
       end.fromArray(this.positions, connection.b * 3);
 
@@ -327,6 +356,8 @@ export class ConnectionSystem {
 
         positions.push(p0.x, p0.y, p0.z);
         strengths.push(connection.strength);
+        progresses.push(t0);
+        connectionIds.push(connectionIndex);
 
         const p1 = point
           .lerpVectors(start, end, t1)
@@ -338,6 +369,8 @@ export class ConnectionSystem {
 
         positions.push(p1.x, p1.y, p1.z);
         strengths.push(connection.strength);
+        progresses.push(t1);
+        connectionIds.push(connectionIndex);
       }
     }
 
@@ -350,6 +383,14 @@ export class ConnectionSystem {
       "aStrength",
       new THREE.Float32BufferAttribute(strengths, 1),
     );
+    geometry.setAttribute(
+      "aProgress",
+      new THREE.Float32BufferAttribute(progresses, 1),
+    );
+    geometry.setAttribute(
+      "aConnectionId",
+      new THREE.Float32BufferAttribute(connectionIds, 1),
+    );
 
     return geometry;
   }
@@ -358,36 +399,142 @@ export class ConnectionSystem {
       transparent: true,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
-      uniforms: { uTime: { value: 0 } },
+      uniforms: {
+        uTime: { value: 0 },
+        uSignalCount: { value: 0 },
+        uSignalConnections: { value: new Float32Array(64) },
+        uSignalProgress: { value: new Float32Array(64) },
+        uSignalStrength: { value: new Float32Array(64) },
+        uSignalDirection: { value: new Float32Array(64) },
+      },
       vertexShader: `
         attribute float aStrength;
+        attribute float aProgress;
+        attribute float aConnectionId;
+
         varying float vStrength;
+        varying float vProgress;
+        varying float vConnectionId;
         varying vec3 vWorldPosition;
 
         void main() {
           vStrength = aStrength;
+          vProgress = aProgress;
+          vConnectionId = aConnectionId;
+
           vec4 worldPosition = modelMatrix * vec4(position, 1.0);
           vWorldPosition = worldPosition.xyz;
+
           gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
         }
       `,
       fragmentShader: `
         uniform float uTime;
+
+        uniform int uSignalCount;
+        uniform float uSignalConnections[64];
+        uniform float uSignalProgress[64];
+        uniform float uSignalStrength[64];
+        uniform float uSignalDirection[64];
+
         varying float vStrength;
+        varying float vProgress;
+        varying float vConnectionId;
         varying vec3 vWorldPosition;
 
         void main() {
-          vec3 color = vec3(0.2, 0.65, 1.0);
-          float pulse = sin(uTime * 2.0) * 0.5 + 0.5;
-          float brightness = 0.6 + vStrength * 0.9 + pulse * 0.4;
+        vec3 color = vec3(0.2, 0.65, 1.0);
+        float brightness = 0.6 + vStrength * 0.9;
 
+        float signalGlow = 0.0;
+        for (int i = 0; i < 64; i++) {
+              if (i >= uSignalCount) break;
+              if (abs(uSignalConnections[i] - vConnectionId) < 0.5) {
+                float distanceFromSignal = abs(vProgress - uSignalProgress[i]);
+                float glow = 1.0 - smoothstep(0.0, 0.16, distanceFromSignal);
+                signalGlow = max(signalGlow, glow * uSignalStrength[i]);
+            }
+          }
+
+          brightness += signalGlow * 4.0;
+
+          color += vec3(0.2, 0.7, 1.0) * signalGlow * 2.0;
           float camDist = length(vWorldPosition - cameraPosition);
           float distanceFade = smoothstep(45.0, 8.0, camDist);
-          float alpha = (0.15 + vStrength * 0.35) * distanceFade;
 
+          float alpha = (0.15 + vStrength * 0.35) * distanceFade;
+          alpha += signalGlow * 0.8;
           gl_FragColor = vec4(color * brightness, alpha);
         }
       `,
     });
+  }
+  private findConnection(a: number, b: number): number {
+    for (let i = 0; i < this.connections.length; i++) {
+      const connection = this.connections[i];
+      if (
+        (connection.a === a && connection.b === b) ||
+        (connection.a === b && connection.b === a)
+      )
+        return i;
+    }
+
+    return -1;
+  }
+  private updateSignalUniforms(time: number): void {
+    const maxSignals = 64;
+    const connections = this.material.uniforms.uSignalConnections
+      .value as Float32Array;
+    const progress = this.material.uniforms.uSignalProgress
+      .value as Float32Array;
+    const strengths = this.material.uniforms.uSignalStrength
+      .value as Float32Array;
+    const directions = this.material.uniforms.uSignalDirection
+      .value as Float32Array;
+
+    let count = 0;
+
+    for (let i = this.activeSignals.length - 1; i >= 0; i--) {
+      const signal = this.activeSignals[i];
+      const t = (time - signal.startTime) / signal.duration;
+      if (t >= 1) {
+        this.activeSignals.splice(i, 1);
+        continue;
+      }
+
+      if (count >= maxSignals) continue;
+
+      connections[count] = signal.connection;
+      progress[count] = THREE.MathUtils.clamp(t, 0, 1);
+      strengths[count] = signal.strength;
+      directions[count] = signal.direction;
+
+      count++;
+    }
+
+    this.material.uniforms.uSignalCount.value = count;
+  }
+  public emitSignal(
+    from: number,
+    to: number,
+    time: number,
+    strength: number,
+    duration: number,
+  ): void {
+    const connectionIndex = this.findConnection(from, to);
+    if (connectionIndex === -1) return;
+
+    this.activeSignals.push({
+      connection: connectionIndex,
+      startTime: time,
+      duration,
+      strength,
+      direction: from === this.connections[connectionIndex].a ? 1 : -1,
+    });
+
+    this.updateSignalUniforms(time);
+  }
+  public getNeighbors(index: number): number[] {
+    return this.adjacency.get(index) ?? [];
   }
 }
