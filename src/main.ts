@@ -25,6 +25,9 @@ const loader = new Loader((progress) => loadingScreen.setProgress(progress));
 
 const timer = new THREE.Timer();
 
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+
 let neurons: NeuronSystem;
 let connections: ConnectionSystem;
 let activity: ActivitySystem;
@@ -61,6 +64,24 @@ function animate() {
 window.addEventListener("resize", () => {
   camera.resize();
   renderer.resize();
+});
+
+window.addEventListener("pointerdown", (event) => {
+  if (!neurons || !activity) return;
+
+  mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+  raycaster.params.Points!.threshold = 0.05;
+  raycaster.setFromCamera(mouse, camera.instance);
+
+  const hits = raycaster.intersectObject(neurons.instance);
+  if (hits.length === 0) return;
+
+  const neuronIndex = hits[0].index;
+  if (neuronIndex === undefined) return;
+
+  activity.fireNeuron(neuronIndex, timer.getElapsed(), 1);
 });
 
 init();

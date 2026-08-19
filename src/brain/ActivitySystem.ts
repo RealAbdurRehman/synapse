@@ -6,6 +6,8 @@ interface Signal {
   neuron: number;
   time: number;
   strength: number;
+  decay: number;
+  visited: Set<number>;
 }
 
 export class ActivitySystem {
@@ -15,12 +17,12 @@ export class ActivitySystem {
   private readonly signals: Signal[] = [];
   private readonly lastFired: Float32Array;
 
-  private readonly spontaneousRate = 4.0;
-  private readonly propagationDelay = 0.12;
-  private readonly signalTravelDuration = 1;
+  private readonly spontaneousRate = 0.8;
+  private readonly signalTravelDuration = 0.5;
 
   private readonly propagationChance = 0.85;
-  private readonly decay = 0.85;
+  private readonly manualDecay = 0.85;
+  private readonly spontaneousDecay = 0.6;
   private readonly refractoryTime = 0.08;
 
   private nextSpontaneousFire = 0;
@@ -31,6 +33,14 @@ export class ActivitySystem {
     this.lastFired = new Float32Array(neurons.getPositions().length / 3).fill(
       -1000,
     );
+  }
+  private receive(signal: Signal, time: number): void {
+    if (time - this.lastFired[signal.neuron] < this.refractoryTime) return;
+
+    this.lastFired[signal.neuron] = time;
+    this.neurons.fire(signal.neuron);
+
+    this.propagate(signal, time);
   }
   public update(time: number): void {
     if (time >= this.nextSpontaneousFire) {
@@ -44,7 +54,7 @@ export class ActivitySystem {
       if (time < signal.time) continue;
 
       this.signals.splice(i, 1);
-      this.propagate(signal, time);
+      this.receive(signal, time);
     }
   }
   private fireRandomNeuron(time: number, strength: number): void {
@@ -52,10 +62,13 @@ export class ActivitySystem {
     const neuron = Math.floor(Math.random() * count);
 
     if (time - this.lastFired[neuron] < this.refractoryTime) return;
-    this.fire(neuron, time, strength);
+    this.fire(neuron, time, strength, this.spontaneousDecay);
   }
   private propagate(signal: Signal, time: number): void {
-    const neighbors = this.connections.getNeighbors(signal.neuron);
+    const neighbors = this.connections
+      .getNeighbors(signal.neuron)
+      .filter((neighbor) => !signal.visited.has(neighbor));
+
     const shuffled = [...neighbors].sort(() => Math.random() - 0.5);
     const propagationCount = Math.min(
       shuffled.length,
@@ -69,7 +82,7 @@ export class ActivitySystem {
       if (time - this.lastFired[neighbor] < this.refractoryTime) continue;
       if (Math.random() > this.propagationChance) continue;
 
-      const strength = signal.strength * this.decay;
+      const strength = signal.strength * signal.decay;
       if (strength < 0.15) continue;
 
       this.connections.emitSignal(
@@ -80,24 +93,44 @@ export class ActivitySystem {
         this.signalTravelDuration,
       );
 
-      this.lastFired[neighbor] = time;
+      const visited = new Set(signal.visited);
+      visited.add(neighbor);
+
       this.signals.push({
         from: signal.neuron,
         neuron: neighbor,
-        time: time + this.propagationDelay,
+        time: time + this.signalTravelDuration,
         strength,
+        decay: signal.decay,
+        visited,
       });
     }
   }
-  private fire(neuron: number, time: number, strength: number): void {
+  private fire(
+    neuron: number,
+    time: number,
+    strength: number,
+    decay: number,
+  ): void {
     this.lastFired[neuron] = time;
     this.neurons.fire(neuron);
 
-    this.signals.push({
-      from: neuron,
-      neuron,
-      time: time + this.propagationDelay,
-      strength,
-    });
+    this.propagate(
+      {
+        from: neuron,
+        neuron,
+        time,
+        strength,
+        decay,
+        visited: new Set([neuron]),
+      },
+      time,
+    );
+  }
+  public fireNeuron(index: number, time: number, strength: number = 1): void {
+    if (index < 0 || index >= this.lastFired.length) return;
+    if (time - this.lastFired[index] < this.refractoryTime) return;
+
+    this.fire(index, time, strength, this.manualDecay);
   }
 }

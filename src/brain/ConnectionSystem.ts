@@ -450,7 +450,8 @@ export class ConnectionSystem {
         for (int i = 0; i < 64; i++) {
               if (i >= uSignalCount) break;
               if (abs(uSignalConnections[i] - vConnectionId) < 0.5) {
-                float distanceFromSignal = abs(vProgress - uSignalProgress[i]);
+                float signalProgress = uSignalDirection[i] > 0.0 ? uSignalProgress[i] : 1.0 - uSignalProgress[i];
+                float distanceFromSignal = abs(vProgress - signalProgress);
                 float glow = 1.0 - smoothstep(0.0, 0.16, distanceFromSignal);
                 signalGlow = max(signalGlow, glow * uSignalStrength[i]);
             }
