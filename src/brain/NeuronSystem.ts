@@ -14,18 +14,56 @@ export class NeuronSystem {
     new THREE.Vector3(0, 0, -1),
   ];
 
-  private readonly highlighted: Float32Array;
+  private readonly highlightTarget: Float32Array;
+  private readonly highlightCurrent: Float32Array;
   private readonly fireTime: Float32Array;
   private readonly material: THREE.ShaderMaterial;
+
+  private lastTime = 0;
+  private static readonly HIGHLIGHT_EASE_SPEED = 7.0;
   constructor(meshes: THREE.Mesh[], count: number = 1000) {
     this.positions = this.createPositions(meshes, count);
-    this.highlighted = new Float32Array(count);
+    this.highlightTarget = new Float32Array(count);
+    this.highlightCurrent = new Float32Array(count);
     this.fireTime = new Float32Array(count).fill(-1000);
     this.material = this.createMaterial();
     this.instance = this.createInstance();
   }
   public setTime(time: number): void {
+    const dt = Math.max(0, time - this.lastTime);
+    this.lastTime = time;
+
     this.material.uniforms.uTime.value = time;
+    this.updateHighlightEasing(dt);
+  }
+  private updateHighlightEasing(dt: number): void {
+    if (dt <= 0) return;
+    const factor = 1 - Math.exp(-NeuronSystem.HIGHLIGHT_EASE_SPEED * dt);
+
+    let anyChanged = false;
+    const EPSILON = 0.001;
+    for (let i = 0; i < this.highlightCurrent.length; i++) {
+      const target = this.highlightTarget[i];
+      const current = this.highlightCurrent[i];
+      const diff = target - current;
+      if (Math.abs(diff) < EPSILON) {
+        if (current !== target) {
+          this.highlightCurrent[i] = target;
+          anyChanged = true;
+        }
+        continue;
+      }
+
+      this.highlightCurrent[i] = current + diff * factor;
+      anyChanged = true;
+    }
+
+    if (anyChanged) {
+      const attribute = this.instance.geometry.getAttribute(
+        "aHighlight",
+      ) as THREE.BufferAttribute;
+      attribute.needsUpdate = true;
+    }
   }
   private isFarFromSurface(
     margin: number,
@@ -123,10 +161,10 @@ export class NeuronSystem {
 
           float sizeMultiplier = mix(0.6, 1.8, pulse);
           sizeMultiplier *= 1.0 + vFireEnvelope * 1.6;
-          if (aHighlight > 0.5) sizeMultiplier *= 1.5;
+          sizeMultiplier *= 1.0 + vHighlight * 0.9;
 
           gl_PointSize = 5.0 * aSize * sizeMultiplier * (300.0 / -mvPosition.z);
-          gl_PointSize = clamp(gl_PointSize, 1.5, 44.0);
+          gl_PointSize = clamp(gl_PointSize, 1.5, 50.0);
 
           gl_Position = projectionMatrix * mvPosition;
         }
@@ -145,26 +183,37 @@ export class NeuronSystem {
 
           float glow = pow(1.0 - smoothstep(0.0, 1.0, dist), 1.6);
           float core = pow(1.0 - smoothstep(0.0, 0.25, dist), 2.0);
+       
+          float ring = 0.0;
+          if (vHighlight > 0.01) {
+            float ringPulse = 0.85 + 0.15 * sin(uTime * 4.0);
+            ring = max(smoothstep(0.45, 0.62, dist) - smoothstep(0.7, 0.95, dist), 0.0) * ringPulse * vHighlight;
+          }
 
           vec3 baseColor = vec3(0.35, 0.75, 1.0);
           vec3 hotColor = vec3(0.75, 0.95, 1.0);
+          vec3 highlightColor = vec3(1.0, 0.75, 0.35);
 
           vec3 color = mix(baseColor, hotColor, min(vFireEnvelope, 1.0));
-          if (vHighlight > 0.5) color *= 1.5;
+          color = mix(color, highlightColor, vHighlight * 0.65);
 
           float shimmer = 0.85 + 0.15 * sin(uTime * 3.0 + vWorldPosition.x * 0.5 + vWorldPosition.y * 0.3);
           float brightness = mix(0.55, 1.25, vPulse) * shimmer;
           brightness += vFireEnvelope * 2.2;
+          brightness += vHighlight * 0.3;
 
           float coreMultiplier = 1.8 + vFireEnvelope * 1.4;
 
           vec3 finalColor = color * (glow * 0.7 + core * coreMultiplier) * brightness;
+          finalColor += highlightColor * ring * 0.5;
+
           finalColor = finalColor / (1.0 + max(finalColor - 1.4, 0.0));
 
           float camDist = length(vWorldPosition - cameraPosition);
           float distanceFade = smoothstep(60.0, 8.0, camDist);
 
-          float alpha = (glow * 0.75 + core * 0.35 + vFireEnvelope * 0.3) * distanceFade;
+          float alpha = (glow * 0.75 + core * 0.35 + vFireEnvelope * 0.3 + ring * 0.35) * distanceFade;
+          alpha = clamp(alpha, 0.0, 1.0);
 
           gl_FragColor = vec4(finalColor, alpha);
         }
@@ -190,7 +239,7 @@ export class NeuronSystem {
     geometry.setAttribute("aPhase", new THREE.BufferAttribute(phases, 1));
     geometry.setAttribute(
       "aHighlight",
-      new THREE.BufferAttribute(this.highlighted, 1),
+      new THREE.BufferAttribute(this.highlightCurrent, 1),
     );
     geometry.setAttribute(
       "aFireTime",
@@ -200,15 +249,10 @@ export class NeuronSystem {
     return new THREE.Points(geometry, this.material);
   }
   public setHighlighted(indices: Set<number>): void {
-    this.highlighted.fill(0);
+    this.highlightTarget.fill(0);
     for (const index of indices)
-      if (index >= 0 && index < this.highlighted.length)
-        this.highlighted[index] = 1;
-
-    const attribute = this.instance.geometry.getAttribute(
-      "aHighlight",
-    ) as THREE.BufferAttribute;
-    attribute.needsUpdate = true;
+      if (index >= 0 && index < this.highlightTarget.length)
+        this.highlightTarget[index] = 1;
   }
   public fire(index: number): void {
     if (index < 0 || index >= this.fireTime.length) return;

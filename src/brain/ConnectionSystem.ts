@@ -33,6 +33,11 @@ export class ConnectionSystem {
   private readonly adjacency = new Map<number, number[]>();
 
   private readonly activeSignals: VisualSignal[] = [];
+
+  private lastTime = 0;
+  private readonly highlightTarget: Float32Array;
+  private readonly highlightCurrent: Float32Array;
+  private static readonly HIGHLIGHT_EASE_SPEED = 8.0;
   constructor(
     positions: Float32Array,
     maxConnectionsPerNeuron: number = 3,
@@ -46,13 +51,46 @@ export class ConnectionSystem {
     this.createConnections();
     this.buildAdjacency();
 
+    this.highlightTarget = new Float32Array(this.connections.length);
+    this.highlightCurrent = new Float32Array(this.connections.length);
+
     this.geometry = this.createGeometry();
     this.material = this.createMaterial();
     this.instance = new THREE.LineSegments(this.geometry, this.material);
   }
   public setTime(time: number): void {
+    const dt = Math.max(0, time - this.lastTime);
+
+    this.lastTime = time;
     this.material.uniforms.uTime.value = time;
     this.updateSignalUniforms(time);
+    this.updateHighlightEasing(dt);
+  }
+  private updateHighlightEasing(dt: number): void {
+    if (dt <= 0) return;
+
+    const factor = 1 - Math.exp(-ConnectionSystem.HIGHLIGHT_EASE_SPEED * dt);
+    const attribute = this.geometry.getAttribute(
+      "aHighlight",
+    ) as THREE.BufferAttribute;
+    const array = attribute.array as Float32Array;
+
+    for (
+      let connection = 0;
+      connection < this.highlightCurrent.length;
+      connection++
+    ) {
+      const current = this.highlightCurrent[connection];
+      const target = this.highlightTarget[connection];
+      this.highlightCurrent[connection] = current + (target - current) * factor;
+
+      const start = connection * this.segmentsPerConnection * 2;
+      const end = start + this.segmentsPerConnection * 2;
+      for (let i = start; i < end; i++)
+        array[i] = this.highlightCurrent[connection];
+    }
+
+    attribute.needsUpdate = true;
   }
   private getCellKey(x: number, y: number, z: number): string {
     return `${Math.floor(x / this.connectionRadius)},${Math.floor(
@@ -280,6 +318,7 @@ export class ConnectionSystem {
     const strengths: number[] = [];
     const progresses: number[] = [];
     const connectionIds: number[] = [];
+    const highlights: number[] = [];
 
     const start = new THREE.Vector3();
     const end = new THREE.Vector3();
@@ -358,6 +397,7 @@ export class ConnectionSystem {
         strengths.push(connection.strength);
         progresses.push(t0);
         connectionIds.push(connectionIndex);
+        highlights.push(0);
 
         const p1 = point
           .lerpVectors(start, end, t1)
@@ -371,6 +411,7 @@ export class ConnectionSystem {
         strengths.push(connection.strength);
         progresses.push(t1);
         connectionIds.push(connectionIndex);
+        highlights.push(0);
       }
     }
 
@@ -390,6 +431,10 @@ export class ConnectionSystem {
     geometry.setAttribute(
       "aConnectionId",
       new THREE.Float32BufferAttribute(connectionIds, 1),
+    );
+    geometry.setAttribute(
+      "aHighlight",
+      new THREE.Float32BufferAttribute(highlights, 1),
     );
 
     return geometry;
@@ -411,16 +456,19 @@ export class ConnectionSystem {
         attribute float aStrength;
         attribute float aProgress;
         attribute float aConnectionId;
+        attribute float aHighlight;
 
         varying float vStrength;
         varying float vProgress;
         varying float vConnectionId;
+        varying float vHighlight;
         varying vec3 vWorldPosition;
 
         void main() {
           vStrength = aStrength;
           vProgress = aProgress;
           vConnectionId = aConnectionId;
+          vHighlight = aHighlight;
 
           vec4 worldPosition = modelMatrix * vec4(position, 1.0);
           vWorldPosition = worldPosition.xyz;
@@ -440,11 +488,16 @@ export class ConnectionSystem {
         varying float vStrength;
         varying float vProgress;
         varying float vConnectionId;
+        varying float vHighlight;
         varying vec3 vWorldPosition;
 
         void main() {
-        vec3 color = vec3(0.2, 0.65, 1.0);
+        vec3 baseColor = vec3(0.2, 0.65, 1.0);
+        vec3 highlightColor = vec3(0.35, 0.75, 1.0);
+        vec3 color = mix(baseColor, highlightColor, vHighlight * 0.8);
+
         float brightness = 0.6 + vStrength * 0.9;
+        brightness += vHighlight * 0.4;
 
         float signalGlow = 0.0;
         for (int i = 0; i < 64; i++) {
@@ -463,7 +516,7 @@ export class ConnectionSystem {
           float camDist = length(vWorldPosition - cameraPosition);
           float distanceFade = smoothstep(45.0, 8.0, camDist);
 
-          float alpha = (0.15 + vStrength * 0.35 + signalGlow * 0.8) * distanceFade;
+          float alpha = (0.15 + vStrength * 0.35 + signalGlow * 0.8 + vHighlight * 0.1) * distanceFade;
           gl_FragColor = vec4(color * brightness, alpha);
         }
       `,
@@ -533,6 +586,16 @@ export class ConnectionSystem {
     });
 
     this.updateSignalUniforms(time);
+  }
+  public setHighlighted(neuron: number): void {
+    this.highlightTarget.fill(0);
+    if (neuron !== -1) {
+      for (let i = 0; i < this.connections.length; i++) {
+        const connection = this.connections[i];
+        if (connection.a === neuron || connection.b === neuron)
+          this.highlightTarget[i] = 1;
+      }
+    }
   }
   public getNeighbors(index: number): number[] {
     return this.adjacency.get(index) ?? [];

@@ -27,6 +27,7 @@ const timer = new THREE.Timer();
 
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
+let hoveredNeuron = -1;
 
 let neurons: NeuronSystem;
 let connections: ConnectionSystem;
@@ -61,6 +62,20 @@ function animate() {
   renderer.render(scene.instance, camera.instance);
 }
 
+function getNeuronAtPointer(event: PointerEvent): number {
+  mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+  raycaster.params.Points!.threshold = 0.1;
+  raycaster.setFromCamera(mouse, camera.instance);
+
+  const hits = raycaster.intersectObject(neurons.instance);
+
+  if (hits.length === 0) return -1;
+
+  return hits[0].index ?? -1;
+}
+
 window.addEventListener("resize", () => {
   camera.resize();
   renderer.resize();
@@ -69,19 +84,24 @@ window.addEventListener("resize", () => {
 window.addEventListener("pointerdown", (event) => {
   if (!neurons || !activity) return;
 
-  mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-  mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
-  raycaster.params.Points!.threshold = 0.05;
-  raycaster.setFromCamera(mouse, camera.instance);
-
-  const hits = raycaster.intersectObject(neurons.instance);
-  if (hits.length === 0) return;
-
-  const neuronIndex = hits[0].index;
-  if (neuronIndex === undefined) return;
+  const neuronIndex = getNeuronAtPointer(event);
+  if (neuronIndex === -1) return;
 
   activity.fireNeuron(neuronIndex, timer.getElapsed(), 1);
+});
+
+window.addEventListener("pointermove", (event) => {
+  if (!neurons || !connections) return;
+
+  const neuronIndex = getNeuronAtPointer(event);
+  if (neuronIndex === hoveredNeuron) return;
+
+  hoveredNeuron = neuronIndex;
+  neurons.setHighlighted(
+    neuronIndex === -1 ? new Set() : new Set([neuronIndex]),
+  );
+
+  connections.setHighlighted(neuronIndex);
 });
 
 init();
