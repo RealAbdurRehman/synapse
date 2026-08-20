@@ -31,6 +31,11 @@ const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
 let hoveredNeuron = -1;
 
+const settings = {
+  neuronCount: 3000,
+  connectionsPerNeuron: 3,
+};
+
 let brain: BrainModel;
 let neurons: NeuronSystem;
 let connections: ConnectionSystem;
@@ -39,8 +44,12 @@ async function init() {
   brain = new BrainModel(loader.manager);
   await brain.load();
 
-  neurons = new NeuronSystem(brain.meshes, 3000);
-  connections = new ConnectionSystem(neurons.getPositions(), 3);
+  neurons = new NeuronSystem(brain.meshes, settings.neuronCount);
+  connections = new ConnectionSystem(
+    neurons.getPositions(),
+    settings.connectionsPerNeuron,
+  );
+
   activity = new ActivitySystem(neurons, connections);
 
   scene.instance.add(brain.instance);
@@ -136,6 +145,109 @@ window.addEventListener("pointermove", (event) => {
 
   connections.setHighlighted(neuronIndex);
   focusOnNeuron(neuronIndex);
+});
+
+const settingsToggle = document.getElementById("settings-toggle")!;
+const settingsPanel = document.getElementById("settings-panel")!;
+const settingsClose = document.getElementById("settings-close")!;
+
+function setSettingsOpen(open: boolean) {
+  settingsToggle.setAttribute("aria-expanded", String(open));
+  if (open)
+    settingsPanel.classList.remove(
+      "translate-y-3",
+      "scale-95",
+      "opacity-0",
+      "pointer-events-none",
+    );
+  else
+    settingsPanel.classList.add(
+      "translate-y-3",
+      "scale-95",
+      "opacity-0",
+      "pointer-events-none",
+    );
+}
+
+function updateSliderFill(input: HTMLInputElement) {
+  const min = Number(input.min);
+  const max = Number(input.max);
+  const pct = ((Number(input.value) - min) / (max - min)) * 100;
+  input.style.setProperty("--fill", `${pct}%`);
+}
+
+function rebuildNeuralSystem() {
+  scene.instance.remove(neurons.instance);
+  scene.instance.remove(connections.instance);
+
+  neurons.dispose();
+  connections.dispose();
+  activity.dispose();
+
+  neurons = new NeuronSystem(brain.meshes, settings.neuronCount);
+  connections = new ConnectionSystem(
+    neurons.getPositions(),
+    settings.connectionsPerNeuron,
+  );
+
+  activity = new ActivitySystem(neurons, connections);
+
+  scene.instance.add(connections.instance);
+  scene.instance.add(neurons.instance);
+
+  hoveredNeuron = -1;
+  renderer.clearFocus();
+}
+
+settingsToggle.addEventListener("click", () => {
+  const isOpen = !settingsPanel.classList.contains("opacity-0");
+  setSettingsOpen(!isOpen);
+});
+
+settingsClose.addEventListener("click", () => {
+  setSettingsOpen(false);
+});
+
+const neuronCountInput = document.getElementById(
+  "neuron-count",
+) as HTMLInputElement;
+neuronCountInput.addEventListener("input", () => {
+  const value = Number(neuronCountInput.value);
+  neuronCountValue.textContent = value.toLocaleString();
+  updateSliderFill(neuronCountInput);
+});
+updateSliderFill(neuronCountInput);
+
+const neuronCountValue = document.getElementById("neuron-count-value")!;
+neuronCountInput.addEventListener("input", () => {
+  const value = Number(neuronCountInput.value);
+  neuronCountValue.textContent = value.toLocaleString();
+});
+
+const connectionCountInput = document.getElementById(
+  "connection-count",
+) as HTMLInputElement;
+connectionCountInput.addEventListener("input", () => {
+  const value = Number(connectionCountInput.value);
+  connectionCountValue.textContent = String(value);
+  updateSliderFill(connectionCountInput);
+});
+updateSliderFill(connectionCountInput);
+
+const connectionCountValue = document.getElementById("connection-count-value")!;
+connectionCountInput.addEventListener("input", () => {
+  const value = Number(connectionCountInput.value);
+  connectionCountValue.textContent = String(value);
+});
+
+const settingsApply = document.getElementById("settings-apply")!;
+
+settingsApply.addEventListener("click", () => {
+  settings.neuronCount = Number(neuronCountInput.value);
+  settings.connectionsPerNeuron = Number(connectionCountInput.value);
+
+  rebuildNeuralSystem();
+  setSettingsOpen(false);
 });
 
 init();

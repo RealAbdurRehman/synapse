@@ -133,4 +133,7 @@ export class ActivitySystem {
 
     this.fire(index, time, strength, this.manualDecay);
   }
+  public dispose(): void {
+    this.signals.length = 0;
+  }
 }

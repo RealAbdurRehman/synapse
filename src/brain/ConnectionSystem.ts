@@ -600,4 +600,15 @@ export class ConnectionSystem {
   public getNeighbors(index: number): number[] {
     return this.adjacency.get(index) ?? [];
   }
+  public dispose(): void {
+    this.geometry.dispose();
+    this.material.dispose();
+
+    this.connections.length = 0;
+    this.activeSignals.length = 0;
+
+    this.connected.clear();
+    this.adjacency.clear();
+    this.grid.clear();
+  }
 }

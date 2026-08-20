@@ -267,4 +267,8 @@ export class NeuronSystem {
   public getPositions(): Float32Array {
     return this.positions;
   }
+  public dispose(): void {
+    this.instance.geometry.dispose();
+    this.material.dispose();
+  }
 }
