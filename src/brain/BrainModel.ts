@@ -39,7 +39,7 @@ export class BrainModel {
         uRimColor: { value: new THREE.Color(0x8fdcff) },
         uOpacity: { value: 0.1 },
         uFresnelPower: { value: 5.0 },
-        uFresnelStrength: { value: 0.75 },
+        uFresnelStrength: { value: 0.5 },
         uTime: { value: 0 },
         uPulseAmount: { value: 0.2 },
       },

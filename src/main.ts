@@ -18,6 +18,8 @@ import { ActivitySystem } from "./brain/ActivitySystem";
 const scene = new Scene();
 const camera = new Camera();
 const renderer = new Renderer();
+renderer.setupPostProcessing(scene.instance, camera.instance);
+
 const controls = new Controls(camera.instance, renderer.instance);
 
 const loadingScreen = new LoadingScreen();
@@ -55,14 +57,16 @@ function animate() {
 
   timer.update();
   const elapsedTime = timer.getElapsed();
+  const deltaTime = timer.getDelta();
 
   brain.update(elapsedTime);
   neurons.setTime(elapsedTime);
   connections.setTime(elapsedTime);
   activity.update(elapsedTime);
+  renderer.setTime(elapsedTime, deltaTime);
 
   controls.update();
-  renderer.render(scene.instance, camera.instance);
+  renderer.render();
 }
 
 function getNeuronAtPointer(event: PointerEvent): number {
@@ -79,14 +83,39 @@ function getNeuronAtPointer(event: PointerEvent): number {
   return hits[0].index ?? -1;
 }
 
+function focusOnNeuron(neuronIndex: number): void {
+  if (neuronIndex === -1) {
+    renderer.clearFocus();
+    return;
+  }
+
+  const positions = neurons.getPositions();
+  const position = new THREE.Vector3(
+    positions[neuronIndex * 3],
+    positions[neuronIndex * 3 + 1],
+    positions[neuronIndex * 3 + 2],
+  );
+
+  neurons.instance.localToWorld(position);
+
+  const cameraToNeuron = new THREE.Vector3().subVectors(
+    position,
+    camera.instance.position,
+  );
+
+  const focusDistance = cameraToNeuron.dot(
+    camera.instance.getWorldDirection(new THREE.Vector3()),
+  );
+
+  if (focusDistance > 0) renderer.setFocus(focusDistance);
+}
+
 window.addEventListener("resize", () => {
   camera.resize();
   renderer.resize();
 });
 
 window.addEventListener("pointerdown", (event) => {
-  if (!neurons || !activity) return;
-
   const neuronIndex = getNeuronAtPointer(event);
   if (neuronIndex === -1) return;
 
@@ -94,8 +123,6 @@ window.addEventListener("pointerdown", (event) => {
 });
 
 window.addEventListener("pointermove", (event) => {
-  if (!neurons || !connections) return;
-
   const neuronIndex = getNeuronAtPointer(event);
   if (neuronIndex === hoveredNeuron) return;
 
@@ -105,6 +132,7 @@ window.addEventListener("pointermove", (event) => {
   );
 
   connections.setHighlighted(neuronIndex);
+  focusOnNeuron(neuronIndex);
 });
 
 init();
