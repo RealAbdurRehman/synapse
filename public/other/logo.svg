@@ -1,5 +1,5 @@
-<svg width="420" height="256" viewBox="0 0 420 256" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <g transform="translate(45 45) scale(0.65)"
+<svg width="300" height="100" viewBox="0 0 300 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <g transform="translate(8 -6) scale(0.42)"
      stroke="#FFFFFF"
      stroke-width="4.5"
      stroke-linecap="round">
@@ -7,12 +7,14 @@
     <line x1="201" y1="109" x2="109" y2="201"/>
     <line x1="75" y1="75" x2="109" y2="201"/>
   </g>
-  <g transform="translate(45 45) scale(0.65)" fill="#FFFFFF">
+
+  <g transform="translate(8 -6) scale(0.42)" fill="#FFFFFF">
     <circle cx="201" cy="109" r="11"/>
     <circle cx="75" cy="75" r="11"/>
     <circle cx="109" cy="201" r="11"/>
   </g>
-  <text x="210" y="132"
+
+  <text x="115" y="59"
         font-family="Inter, system-ui, -apple-system, sans-serif"
         font-size="30"
         font-weight="600"
