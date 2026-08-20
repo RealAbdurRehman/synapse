@@ -1,7 +1,11 @@
-<h1 align="center">
-  SYNAPSE
-</h1>
-https://github.com/RealAbdurRehman/synapse/blob/main/public/icon/icon.svg
+<p align="center">
+  <img
+    src="https://github.com/RealAbdurRehman/synapse/blob/main/public/other/logo.svg"
+    width="300"
+    alt="Blur Stuff"
+  />
+</p>
+
 <p align="center">
   <i>An interactive visualization of neural activity in the human brain.</i>
 </p>
