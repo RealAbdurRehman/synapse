@@ -34,6 +34,8 @@ let hoveredNeuron = -1;
 const settings = {
   neuronCount: 3000,
   connectionsPerNeuron: 3,
+  showNeurons: true,
+  showConnections: true,
 };
 
 let brain: BrainModel;
@@ -196,8 +198,8 @@ function rebuildNeuralSystem() {
 
   activity = new ActivitySystem(neurons, connections);
 
-  scene.instance.add(connections.instance);
-  scene.instance.add(neurons.instance);
+  if (settings.showNeurons) scene.instance.add(neurons.instance);
+  if (settings.showConnections) scene.instance.add(connections.instance);
 
   hoveredNeuron = -1;
   renderer.clearFocus();
@@ -244,11 +246,22 @@ connectionCountInput.addEventListener("input", () => {
   connectionCountValue.textContent = String(value);
 });
 
+const showNeuronsInput = document.getElementById(
+  "show-neurons",
+) as HTMLInputElement;
+
+const showConnectionsInput = document.getElementById(
+  "show-connections",
+) as HTMLInputElement;
+
 const settingsApply = document.getElementById("settings-apply")!;
 
 settingsApply.addEventListener("click", () => {
   settings.neuronCount = Number(neuronCountInput.value);
   settings.connectionsPerNeuron = Number(connectionCountInput.value);
+
+  settings.showNeurons = showNeuronsInput.checked;
+  settings.showConnections = showConnectionsInput.checked;
 
   rebuildNeuralSystem();
   setSettingsOpen(false);
