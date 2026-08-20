@@ -1,7 +1,7 @@
 <h1 align="center">
   SYNAPSE
 </h1>
-
+https://github.com/RealAbdurRehman/synapse/blob/main/public/icon/icon.svg
 <p align="center">
   <i>An interactive visualization of neural activity in the human brain.</i>
 </p>
@@ -9,7 +9,7 @@
 <p align="center">
 	<img src="https://cloud-cittgrs28-hack-club-bot.vercel.app/0preview1.jpeg" alt="Demo">
 	<br>
-	<a href="https://decay-psi.vercel.app">Live demo</a>
+	<a href="https://synapse-ruddy-delta.vercel.app">Live demo</a>
 	<br>
 </p>
 
