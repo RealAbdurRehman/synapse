@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-	<img src="https://cloud-cittgrs28-hack-club-bot.vercel.app/0preview1.jpeg" alt="Demo">
+	<img src="https://github.com/RealAbdurRehman/synapse/blob/main/public/other/preview.gif" alt="Demo">
 	<br>
 	<a href="https://synapse-ruddy-delta.vercel.app">Live demo</a>
 	<br>
