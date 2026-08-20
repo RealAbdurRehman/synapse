@@ -59,6 +59,8 @@ function animate() {
   const elapsedTime = timer.getElapsed();
   const deltaTime = timer.getDelta();
 
+  scene.background.setTime(elapsedTime);
+
   brain.update(elapsedTime);
   neurons.setTime(elapsedTime);
   connections.setTime(elapsedTime);
@@ -113,6 +115,7 @@ function focusOnNeuron(neuronIndex: number): void {
 window.addEventListener("resize", () => {
   camera.resize();
   renderer.resize();
+  scene.background.resize();
 });
 
 window.addEventListener("pointerdown", (event) => {

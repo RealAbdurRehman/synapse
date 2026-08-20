@@ -1,13 +1,17 @@
 import * as THREE from "three";
 
+import { Background } from "./Background";
+
 export class Scene {
   public readonly instance: THREE.Scene;
+  public readonly background: Background;
   constructor() {
     this.instance = new THREE.Scene();
+    this.background = new Background();
     this.init();
   }
   private init(): void {
-    this.instance.background = new THREE.Color(0x020617);
+    this.instance.add(this.background.instance);
 
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.15);
     this.instance.add(ambientLight);
