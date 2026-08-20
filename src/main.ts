@@ -128,6 +128,8 @@ window.addEventListener("resize", () => {
 });
 
 window.addEventListener("pointerdown", (event) => {
+  if (!neurons || !connections || !activity) return;
+
   const neuronIndex = getNeuronAtPointer(event);
   if (neuronIndex === -1) return;
 
@@ -135,6 +137,8 @@ window.addEventListener("pointerdown", (event) => {
 });
 
 window.addEventListener("pointermove", (event) => {
+  if (!neurons || !connections || !activity) return;
+
   const neuronIndex = getNeuronAtPointer(event);
   if (neuronIndex === hoveredNeuron) return;
 
