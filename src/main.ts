@@ -29,17 +29,19 @@ const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
 let hoveredNeuron = -1;
 
+let brain: BrainModel;
 let neurons: NeuronSystem;
 let connections: ConnectionSystem;
 let activity: ActivitySystem;
 async function init() {
-  const brain = new BrainModel(loader.manager);
+  brain = new BrainModel(loader.manager);
   await brain.load();
 
   neurons = new NeuronSystem(brain.meshes, 3000);
   connections = new ConnectionSystem(neurons.getPositions(), 3);
   activity = new ActivitySystem(neurons, connections);
 
+  scene.instance.add(brain.instance);
   scene.instance.add(connections.instance);
   scene.instance.add(neurons.instance);
 
@@ -54,6 +56,7 @@ function animate() {
   timer.update();
   const elapsedTime = timer.getElapsed();
 
+  brain.update(elapsedTime);
   neurons.setTime(elapsedTime);
   connections.setTime(elapsedTime);
   activity.update(elapsedTime);
