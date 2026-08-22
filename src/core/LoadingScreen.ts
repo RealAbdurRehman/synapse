@@ -1,18 +1,18 @@
 export class LoadingScreen {
-  private element: HTMLElement;
-  private progressBar: HTMLElement;
-  private percentage: HTMLElement;
-  constructor() {
-    this.element = document.getElementById("loader")!;
-    this.progressBar = document.getElementById("loader-progress")!;
-    this.percentage = document.getElementById("loader-percentage")!;
-  }
-  public setProgress(progress: number): void {
+  private readonly element = document.getElementById("loader")!;
+  private readonly status = document.getElementById("loader-status")!;
+  private readonly loadingText = document.getElementById("loading-text")!;
+  public setProgress(url: string, progress: number): void {
     const percentage = Math.round(progress * 100);
-    this.progressBar.style.width = `${percentage}%`;
-    this.percentage.textContent = `${percentage}%`;
+    this.status.textContent = `Loading... ${percentage}%`;
+    this.loadingText.textContent = url;
   }
   public hide(): void {
-    this.element.classList.add("opacity-0", "pointer-events-none");
+    setTimeout(() => {
+      this.element.classList.remove("opacity-100");
+      this.element.classList.add("opacity-0");
+    }, 150);
+
+    setTimeout(() => this.element.classList.add("hidden"), 850);
   }
 }

@@ -10,47 +10,30 @@
     <title>Synapse</title>
     <link rel="icon" type="image/x-icon" href="/favicon/favicon.ico" />
   </head>
-  <body class="bg-black">
+  <body class="bg-black text-white font-jura">
     <div
       id="loader"
-      class="fixed inset-0 z-10 flex items-center justify-center overflow-hidden bg-[#02040a] transition-all duration-1000 ease-[cubic-bezier(0.22,1,0.36,1)]"
+      class="fixed inset-0 z-50 grid place-items-center opacity-100 transition-opacity duration-700 ease-out bg-black/80"
     >
       <div
-        class="pointer-events-none absolute left-1/2 top-1/2 h-125 w-125 -translate-x-1/2 -translate-y-1/2 rounded-full bg-blue-500/6 blur-[120px]"
-      ></div>
-      <div class="relative flex w-90 flex-col items-center">
-        <div class="mb-8 text-center">
-          <h1 class="text-3xl font-medium tracking-[0.35em] text-white/90">
-            SYNAPSE
-          </h1>
+        class="flex flex-col items-center gap-4 transition-opacity duration-700"
+      >
+        <h1 class="text-4xl font-medium">Synapse</h1>
+        <div id="loader-status" class="min-h-4.5 text-lg text-white/60">
+          Loading...
         </div>
-        <div class="flex w-full items-center gap-4">
-          <div class="h-0.5 flex-1 overflow-hidden bg-white/6">
-            <div
-              id="loader-progress"
-              class="h-full w-0 bg-blue-300/80 shadow-[0_0_10px_rgba(100,180,255,0.8)] transition-[width] duration-300 ease-out"
-            ></div>
-          </div>
-          <span
-            id="loader-percentage"
-            class="w-8 text-right font-mono text-[10px] tabular-nums text-white/40"
-          >
-            0%
-          </span>
+        <div class="-mt-2">
+          Currently loading:
+          <span id="loading-text" class="text-blue-300"></span>
         </div>
-        <div class="mt-3 w-full">
-          <div
-            class="font-mono text-[9px] tracking-[0.2em] text-white/35 text-center"
-            id="loader-status"
-          >
-            INITIALIZING
-          </div>
+        <div id="loader-message" class="fixed bottom-5 text-xs text-white/40">
+          - This might be a while...
         </div>
       </div>
     </div>
     <button
       id="settings-toggle"
-      class="fixed bottom-5 right-5 z-20 flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/20 backdrop-blur-md transition hover:bg-white/10 hover:text-white/80 cursor-pointer"
+      class="fixed bottom-5 right-5 z-20 flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 backdrop-blur-md transition hover:bg-white/10 text-white/30 hover:text-white/80 cursor-pointer"
       aria-label="Open settings"
     >
       <svg
@@ -73,37 +56,39 @@
     </button>
     <div
       id="settings-panel"
-      class="fixed right-5 bottom-16 z-20 w-72 origin-bottom-right translate-y-3 scale-95 pointer-events-none opacity-0 rounded-lg border border-white/10 bg-[#05070c]/05 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.8)] backdrop-blur-xl transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
+      class="fixed right-5 bottom-16 z-20 w-72 origin-bottom-right translate-y-3 scale-95 pointer-events-none opacity-0 rounded-lg border border-white/10 bg-black/50 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.8)] transition-all duration-300 ease-in-out text-[13px]"
     >
       <div
         class="flex items-center justify-between border-b border-white/8 px-5 py-4"
       >
-        <div class="text-[11px] font-medium tracking-[0.25em] text-white/70">
-          PARAMETERS
-        </div>
+        <div class="font-medium">SETTINGS</div>
         <button
           id="settings-close"
-          class="flex h-5 w-5 items-center justify-center rounded-full text-white/30 transition hover:bg-white/10 hover:text-white cursor-pointer"
+          class="flex h-5 w-5 items-center justify-center text-white/30 transition hover:text-white cursor-pointer"
           aria-label="Close settings"
         >
-          ×
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="lucide lucide-x-icon lucide-x"
+          >
+            <path d="M18 6 6 18" />
+            <path d="m6 6 12 12" />
+          </svg>
         </button>
       </div>
       <div class="space-y-5 px-5 py-5">
         <div>
           <div class="mb-2.5 flex items-center justify-between">
-            <label
-              for="neuron-count"
-              class="font-mono text-[10px] tracking-wider text-white/50"
-            >
-              NEURONS
-            </label>
-            <span
-              id="neuron-count-value"
-              class="font-mono text-[10px] tabular-nums text-blue-300"
-            >
-              3,000
-            </span>
+            <label for="neuron-count">NEURONS</label>
+            <span id="neuron-count-value" class="text-blue-300">3,000</span>
           </div>
           <input
             id="neuron-count"
@@ -117,18 +102,8 @@
         </div>
         <div>
           <div class="mb-2.5 flex items-center justify-between">
-            <label
-              for="connection-count"
-              class="font-mono text-[10px] tracking-wider text-white/50"
-            >
-              CONNECTIONS
-            </label>
-            <span
-              id="connection-count-value"
-              class="font-mono text-[10px] tabular-nums text-blue-300"
-            >
-              3
-            </span>
+            <label for="connection-count">CONNECTIONS</label>
+            <span id="connection-count-value" class="text-blue-300">3</span>
           </div>
           <input
             id="connection-count"
@@ -141,17 +116,12 @@
           />
         </div>
         <div class="border-t border-white/8 pt-5 space-y-3">
-          <div class="font-mono text-[10px] tracking-wider text-white/50">
-            VISIBILITY
-          </div>
           <label class="flex items-center justify-between cursor-pointer">
-            <span class="font-mono text-[10px] text-white/50"> NEURONS </span>
+            <span>NEURONS</span>
             <input id="show-neurons" type="checkbox" checked class="toggle" />
           </label>
           <label class="flex items-center justify-between cursor-pointer">
-            <span class="font-mono text-[10px] text-white/50">
-              CONNECTIONS
-            </span>
+            <span>CONNECTIONS</span>
             <input
               id="show-connections"
               type="checkbox"
@@ -162,7 +132,7 @@
         </div>
         <button
           id="settings-apply"
-          class="w-full rounded-sm border border-blue-300/20 bg-blue-300/5 py-2.5 font-mono text-[10px] tracking-[0.2em] text-blue-200 transition hover:border-blue-300/40 hover:bg-blue-300/10 cursor-pointer"
+          class="w-full rounded-sm border border-blue-300/20 bg-blue-300/5 py-2.5 text-blue-200 transition hover:border-blue-300/40 hover:bg-blue-300/10 cursor-pointer"
         >
           APPLY
         </button>

@@ -23,7 +23,9 @@ renderer.setupPostProcessing(scene.instance, camera.instance);
 const controls = new Controls(camera.instance, renderer.instance);
 
 const loadingScreen = new LoadingScreen();
-const loader = new Loader((progress) => loadingScreen.setProgress(progress));
+const loader = new Loader((url, progress) =>
+  loadingScreen.setProgress(url, progress),
+);
 
 const timer = new THREE.Timer();
 
@@ -217,6 +219,7 @@ settingsClose.addEventListener("click", () => {
 const neuronCountInput = document.getElementById(
   "neuron-count",
 ) as HTMLInputElement;
+const neuronCountValue = document.getElementById("neuron-count-value")!;
 neuronCountInput.addEventListener("input", () => {
   const value = Number(neuronCountInput.value);
   neuronCountValue.textContent = value.toLocaleString();
@@ -224,27 +227,16 @@ neuronCountInput.addEventListener("input", () => {
 });
 updateSliderFill(neuronCountInput);
 
-const neuronCountValue = document.getElementById("neuron-count-value")!;
-neuronCountInput.addEventListener("input", () => {
-  const value = Number(neuronCountInput.value);
-  neuronCountValue.textContent = value.toLocaleString();
-});
-
 const connectionCountInput = document.getElementById(
   "connection-count",
 ) as HTMLInputElement;
+const connectionCountValue = document.getElementById("connection-count-value")!;
 connectionCountInput.addEventListener("input", () => {
   const value = Number(connectionCountInput.value);
   connectionCountValue.textContent = String(value);
   updateSliderFill(connectionCountInput);
 });
 updateSliderFill(connectionCountInput);
-
-const connectionCountValue = document.getElementById("connection-count-value")!;
-connectionCountInput.addEventListener("input", () => {
-  const value = Number(connectionCountInput.value);
-  connectionCountValue.textContent = String(value);
-});
 
 const showNeuronsInput = document.getElementById(
   "show-neurons",

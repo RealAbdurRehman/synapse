@@ -21,13 +21,29 @@
 
 Synapse is a visualization of the human brain built using Three.js. It simulates a network of connected neurons and signals between them.
 
-I built synapse as a way of getting back into Three.js and shaders. The goal wasn't to create an accurate model of the human brain but to create a something visually compelling.
+I built synapse as a way of getting back into Three.js and shaders. The goal wasn't to create an accurate model of the human brain but to create something visually compelling.
 
 ## Technology
 
 - WebGL
 - Three.js
 - TypeScript
+
+## Running Locally
+
+Clone the repository and install the dependencies:
+
+```bash
+npm install
+```
+
+Start the development server:
+
+```bash
+npm run dev
+```
+
+Then open the local URL provided by Vite.
 
 ## License
 
